@@ -11,6 +11,9 @@ __version__ = '0.2'
 
 
 import pynotify
+import hashlib
+import urllib
+import gtk
 from pinder import Campfire
 
 
@@ -19,6 +22,7 @@ SECRET_TOKEN = ''
 SUBDOMAIN = ''
 ROOM_ID = ''    # you can enter only ID or Name
 ROOM_NAME = ''
+SHOW_GRAVATAR = False
 
 # if you want to keep confidential data separately
 try:
@@ -52,29 +56,34 @@ class MyNotify(object):
         
         if mes['type']=='TextMessage':
             user = self.c.user(mes['user_id'])['user']
+            gravatar_hash = hashlib.md5(user['email_address'].lower()).hexdigest()
             title = user['name']
             body = mes['body']
             
         elif mes['type']=='TopicChangeMessage':
             user = self.c.user(mes['user_id'])['user']
-            title = 'Changed topic'
+            gravatar_hash = hashlib.md5(user['email_address'].lower()).hexdigest()
+            title = 'Topic has been changed'
             body = '%s changed the room’s topic to "%s"' % (user['name'], 
                                                             mes['body'])
                                                           
         elif mes['type']=='LeaveMessage':
             user = self.c.user(mes['user_id'])['user']
-            title = 'Leave message'
+            gravatar_hash = hashlib.md5(user['email_address'].lower()).hexdigest()
+            title = 'Someone has left the room'
             body = '%s has left the room' % user['name']
                                                                       
         elif mes['type']=='EnterMessage':
             user = self.c.user(mes['user_id'])['user']
-            title = 'Enter message'
+            gravatar_hash = hashlib.md5(user['email_address'].lower()).hexdigest()
+            title = 'Someone has joined the room'
             body = '%s has entered the room' % user['name']
 
         elif mes['type']=='UploadMessage':
             user = self.c.user(mes['user_id'])['user']
-            title = 'Upload message'
-            body = '%s upload the %s' % (user['name'], 
+            gravatar_hash = hashlib.md5(user['email_address'].lower()).hexdigest()
+            title = 'New file uploaded'
+            body = '%s uploaded %s' % (user['name'], 
                                          mes['body'])
 
         else:
@@ -82,13 +91,20 @@ class MyNotify(object):
                                                           
 
         n = pynotify.Notification(title, body)
+        if gravatar_hash and SHOW_GRAVATAR:
+            source = urllib.urlopen('http://www.gravatar.com/avatar/' + gravatar_hash)
+            contents = source.read()
+            get_image = gtk.gdk.PixbufLoader('jpeg')
+            get_image.write(contents)
+            get_image.close()
+            n.set_icon_from_pixbuf(get_image.get_pixbuf())
         n.show()
 
     def error_callback(self, expt):
         print '***** Error callback *****'
         print expt
         print '***** End callback *****'
-        n = pynotify.Notification('Error', 'Some error')
+        n = pynotify.Notification('Whoops!', 'An error occurred', 'dialog-error')
         n.show()
 
 
